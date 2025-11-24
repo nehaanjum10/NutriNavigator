@@ -1,18 +1,25 @@
 from flask import Flask, render_template, request
+from dotenv import load_dotenv
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain_groq import ChatGroq
 import os
 import re
 
+# Load .env file for local API key
+load_dotenv()
+
+# Initialize Flask app
 app = Flask(__name__)
 
+# Initialize Groq LLM with API key from environment
 llm_resto = ChatGroq(
-    api_key = "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",
-    model = "llama-3.3-70b-versatile",
+    api_key=os.getenv("GROQ_API_KEY"),
+    model="llama-3.3-70b-versatile",
     temperature=0.0
 )
 
+# Prompt template
 prompt_template_resto = PromptTemplate(
     input_variables=['age', 'gender', 'weight', 'height', 'veg_or_nonveg', 'disease', 'region', 'allergics', 'foodtype'],
     template=(
@@ -33,55 +40,64 @@ prompt_template_resto = PromptTemplate(
     )
 )
 
+# Home route
 @app.route('/')
 def index():
     return render_template("index.html")
 
-@app.route('/recommend', methods = ['POST'])
+# Recommendation route
+@app.route('/recommend', methods=['POST'])
 def recommend():
     if request.method == "POST":
-        age = request.form['age']
-        gender = request.form['gender'],
-        weight = request.form['weight']
-        height = request.form['height']
+        # Collect form data
+        age = int(request.form['age'])
+        gender = request.form['gender']  # fixed trailing comma
+        weight = float(request.form['weight'])
+        height = float(request.form['height'])
         veg_or_nonveg = request.form['veg_or_nonveg']
         disease = request.form['disease']
         region = request.form['region']
         allergics = request.form['allergics']
         foodtype = request.form['foodtype']
 
-        chain = LLMChain(llm = llm_resto, prompt = prompt_template_resto)
+        # Initialize LLMChain
+        chain = LLMChain(llm=llm_resto, prompt=prompt_template_resto)
 
         input_data = {
-        'age': age,
-        'gender': gender,
-        'weight': weight,
-        'height': height,
-        'veg_or_nonveg': veg_or_nonveg,
-        'disease':disease,
-        'region': region,
-        'allergics': allergics,
-        'foodtype': foodtype
+            'age': age,
+            'gender': gender,
+            'weight': weight,
+            'height': height,
+            'veg_or_nonveg': veg_or_nonveg,
+            'disease': disease,
+            'region': region,
+            'allergics': allergics,
+            'foodtype': foodtype
         }
 
+        # Run the chain
         results = chain.run(input_data)
 
-        restaurant_names = re.findall(r'Restaurants:\s*(.*?)\n\n', results, re.DOTALL)
-        breakfast_names = re.findall(r'Breakfast:\s*(.*?)\n\n', results, re.DOTALL)
-        dinner_names = re.findall(r'Dinner:\s*(.*?)\n\n', results, re.DOTALL)
-        workout_names = re.findall(r'Workouts:\s*(.*?)\n\n', results, re.DOTALL)
+        # Extract lists using regex
+        def extract_list(section):
+            match = re.search(rf'{section}:\s*(.*?)\n(?:\w+:|$)', results, re.DOTALL)
+            return [line.strip("- ") for line in match.group(1).split("\n") if line.strip()] if match else []
 
-        def clean_list(block):
-            return [line.strip("- ")for line in block.strip().split("\n") if line.strip()]
+        restaurant_names = extract_list('Restaurants')
+        breakfast_names = extract_list('Breakfast')
+        dinner_names = extract_list('Dinner')
+        workout_names = extract_list('Workouts')
 
-        restaurant_names = clean_list(restaurant_names[0]) if restaurant_names else []
-        breakfast_names = clean_list(breakfast_names[0]) if breakfast_names else []
-        dinner_names = clean_list(dinner_names[0]) if dinner_names else []
-        workout_names = clean_list(workout_names[0]) if workout_names else []
+        return render_template(
+            'result.html',
+            restaurant_names=restaurant_names,
+            breakfast_names=breakfast_names,
+            dinner_names=dinner_names,
+            workout_names=workout_names
+        )
 
-        return render_template('result.html', restaurant_names = restaurant_names, breakfast_names=breakfast_names, dinner_names = dinner_names, workout_names=workout_names)
-    return  render_template("index.html")
+    return render_template("index.html")
 
-
+# Run the app
 if __name__ == "__main__":
     app.run(debug=True)
