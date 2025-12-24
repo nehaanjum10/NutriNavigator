@@ -1,37 +1,47 @@
 from dotenv import load_dotenv
 load_dotenv()
-
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 from langchain_groq import ChatGroq
 import os
-import re
 
+# Initialize Groq API
 llm_resto = ChatGroq(
     api_key=os.getenv("API_KEY"),
     model="llama-3.3-70b-versatile",
     temperature=0.0
 )
 
-prompt_template_resto = PromptTemplate(
-    input_variables=['age', 'gender', 'weight', 'height', 'veg_or_nonveg', 'disease', 'region', 'allergics', 'foodtype'],
-    template=(
-        "Diet Recommendation System:\n"
-        "I want you to provide output in the following format using the input criteria:\n\n"
-        "Restaurants:\n"
-        "- name1\n- name2\n- name3\n- name4\n- name5\n- name6\n\n"
-        "Breakfast:\n"
-        "- item1\n- item2\n- item3\n- item4\n- item5\n- item6\n\n"
-        "Dinner:\n"
-        "- item1\n- item2\n- item3\n- item4\n- item5\n\n"
-        "Workouts:\n"
-        "- workout1\n- workout2\n- workout3\n- workout4\n- workout5\n- workout6\n\n"
-        "Criteria:\n"
-        "Age: {age}, Gender: {gender}, Weight: {weight} kg, Height: {height} ft, "
-        "Vegetarian: {veg_or_nonveg}, Disease: {disease}, Region: {region}, "
-        "Allergics: {allergics}, Food Preference: {foodtype}.\n"
-    )
-)
+# Age-based workouts mapping
+AGE_WORKOUTS = {
+    (1, 2): [],  # No workouts
+    (3, 5): ["Roping", "Stretching", "Yoga"],
+    (5, 20): ["Jogging", "Sports", "Skipping", "Calisthenics", "Yoga"],
+    (20, 35): ["Strength training", "Running", "HIIT", "Swimming", "Yoga"],
+    (35, 50): ["Cardio", "Light strength", "Cycling", "Swimming", "Yoga"],
+    (50, 65): ["Walking", "Stretching", "Light yoga", "Balance exercises", "Breathing exercises"],
+    (65, 80): ["Chair yoga", "Stretching", "Slow walking", "Breathing exercises", "Light aerobics"],
+    (80, 95): ["Chair exercises", "Slow stretching", "Breathing exercises", "Light mobility exercises"],
+    (95, 100): ["Chair exercises", "Breathing exercises", "Slow stretching", "Light mobility"]
+}
 
+def get_workouts(age):
+    for (start, end), workouts in AGE_WORKOUTS.items():
+        if start <= age <= end:
+            return workouts
+    return []
 
-chain = LLMChain(llm=llm_resto, prompt=prompt_template_resto)
+# Age-based diet recommendations (simplified, you can expand)
+AGE_FOODS = {
+    (1, 2): ["Milk", "Soft mashed fruits"],
+    (3, 5): ["Rice", "Boiled vegetables", "Soft fruits"],
+    (6, 15): ["Rice", "Dal", "Vegetables", "Fruits", "Eggs/Chicken for non-veg"],
+    (16, 30): ["Balanced meals with carbs, protein, veggies, fruits"],
+    (31, 50): ["Low fat meals, veggies, protein rich diet"],
+    (51, 70): ["Easily digestible meals, porridge, soups, fruits"],
+    (71, 100): ["Soft foods, soups, easy digestible meals, fruits"]
+}
+
+def get_foods(age):
+    for (start, end), foods in AGE_FOODS.items():
+        if start <= age <= end:
+            return foods
+    return ["Balanced diet"]
